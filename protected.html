@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Access Page</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #0f172a;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    text-align: center;
+}
+
+.container {
+    background: #111827;
+    padding: 30px;
+    border-radius: 12px;
+    max-width: 400px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+}
+
+button {
+    background: #ef4444;
+    border: none;
+    color: white;
+    padding: 14px 24px;
+    font-size: 18px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #dc2626;
+}
+</style>
+
+<script>
+document.addEventListener('contextmenu', event => event.preventDefault());
+document.addEventListener('copy', event => event.preventDefault());
+document.addEventListener('cut', event => event.preventDefault());
+document.addEventListener('keydown', function(e) {
+    if (e.ctrlKey && ['c','u','s','p'].includes(e.key.toLowerCase())) {
+        e.preventDefault();
+    }
+});
+</script>
+
+</head>
+<body>
+<div class="container">
+    <h2>🔒 Protected Access</h2>
+    <p>This link cannot be copied.</p>
+    <p>Tap the button below to continue.</p>
+    <br>
+    <button onclick="window.location.href='https://docs.google.com/forms/d/1afI9ptxqz-c8t5OZIsW-zMhEtPxa1AvQ4jcwjB5xMH4/edit'">
+        Continue
+    </button>
+</div>
+</body>
+</html>
