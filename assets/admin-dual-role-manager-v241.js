@@ -1,6 +1,7 @@
 import { sb } from "./supabase.js";
 
 const CAPABILITY = "assessor";
+const OWNER_SET_RPC = "owner_set_role_capability_v1241";
 let dialog = null;
 let loadedRows = [];
 let busyIds = new Set();
@@ -146,6 +147,22 @@ function paintList(query = "") {
     : '<div class="dual-role-manager-empty">No residents found.</div>';
 }
 
+async function setDualRole(profileId, enabled) {
+  // IMPORTANT: writes go through a SECURITY DEFINER owner-only RPC.
+  // Direct insert/update is intentionally blocked by RLS.
+  const { data, error } = await sb.rpc(OWNER_SET_RPC, {
+    p_profile_id: profileId,
+    p_capability: CAPABILITY,
+    p_enabled: enabled,
+  });
+
+  if (error) throw error;
+  if (data && typeof data === "object" && data.ok === false) {
+    throw new Error(data.error || "Could not update dual-role access.");
+  }
+  return data;
+}
+
 function attachDialogEvents() {
   dialog?.querySelector(".dual-role-manager-close")?.addEventListener("click", () => dialog.close());
   dialog?.querySelector("#dualRoleManagerSearch")?.addEventListener("input", (event) => paintList(event.target.value));
@@ -171,28 +188,7 @@ function attachDialogEvents() {
     button.textContent = enable ? "Enabling…" : "Removing…";
 
     try {
-      const { data: existing, error: readError } = await sb
-        .from("profile_role_capabilities")
-        .select("profile_id,capability,is_active")
-        .eq("profile_id", profileId)
-        .eq("capability", CAPABILITY)
-        .maybeSingle();
-
-      if (readError) throw readError;
-
-      if (existing) {
-        const { error } = await sb
-          .from("profile_role_capabilities")
-          .update({ is_active: enable })
-          .eq("profile_id", profileId)
-          .eq("capability", CAPABILITY);
-        if (error) throw error;
-      } else {
-        const { error } = await sb
-          .from("profile_role_capabilities")
-          .insert({ profile_id: profileId, capability: CAPABILITY, is_active: enable });
-        if (error) throw error;
-      }
+      await setDualRole(profileId, enable);
 
       row.dualAssessor = enable;
       paintList(dialog.querySelector("#dualRoleManagerSearch")?.value || "");
