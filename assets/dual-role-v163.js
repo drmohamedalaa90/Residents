@@ -13,10 +13,12 @@ function effectiveMode() {
 function adaptProfile(data) {
   if (!dualAssessor || effectiveMode() !== "assessor" || !data) return data;
   if (Array.isArray(data)) {
-    return data.map((row) => row && String(row.id || "") === currentUserId ? { ...row, role: "assessor" } : row);
+    return data.map((row) => row && String(row.id || "") === currentUserId
+      ? { ...row, role: "assessor", __primary_role: "resident", __dual_role_assessor: true }
+      : row);
   }
   if (typeof data === "object" && String(data.id || "") === currentUserId) {
-    return { ...data, role: "assessor" };
+    return { ...data, role: "assessor", __primary_role: "resident", __dual_role_assessor: true };
   }
   return data;
 }
@@ -26,11 +28,17 @@ async function initializeCapability() {
     const { data: sessionData } = await sb.auth.getSession();
     currentUserId = String(sessionData?.session?.user?.id || "");
     if (!currentUserId) return;
+
     const { data, error } = await sb.rpc("get_my_role_capabilities");
     if (error || !data) return;
+
     primaryRole = String(data.primary_role || "");
     residencyYear = Number(data.residency_year) || null;
-    dualAssessor = primaryRole === "resident" && residencyYear === 4 && data.assessor === true;
+
+    // Admin now controls dual-role eligibility in profile_role_capabilities.
+    // Keep the primary database role as Resident; Assessor is an extra capability.
+    dualAssessor = primaryRole === "resident" && data.assessor === true;
+
     if (!dualAssessor) localStorage.removeItem(MODE_KEY);
   } catch (error) {
     console.warn("Dual-role capability could not be loaded", error);
@@ -39,12 +47,12 @@ async function initializeCapability() {
 
 await initializeCapability();
 
-// Supabase query builders return a NEW builder after select/eq/etc. The old implementation
-// only patched the first object, so app.js still received the real resident role. This proxy
-// wraps the full profiles query chain and adapts the final result for the signed-in dual-role
-// user only. Other resident/profile rows are untouched.
+// Supabase query builders return a NEW builder after select/eq/etc.
+// Wrap the entire profiles chain and adapt ONLY the signed-in dual-role resident
+// while they deliberately use Assessor view.
 if (dualAssessor) {
   const originalFrom = sb.from.bind(sb);
+
   const wrapProfilesBuilder = (builder) => new Proxy(builder, {
     get(target, prop, receiver) {
       if (prop === "then") {
@@ -56,15 +64,20 @@ if (dualAssessor) {
           reject,
         );
       }
+
       const value = Reflect.get(target, prop, receiver);
       if (typeof value !== "function") return value;
+
       return (...args) => {
         const next = value.apply(target, args);
-        if (next && typeof next === "object" && typeof next.then === "function") return wrapProfilesBuilder(next);
+        if (next && typeof next === "object" && typeof next.then === "function") {
+          return wrapProfilesBuilder(next);
+        }
         return next;
       };
     },
   });
+
   sb.from = (table, ...rest) => {
     const builder = originalFrom(table, ...rest);
     return table === "profiles" ? wrapProfilesBuilder(builder) : builder;
@@ -73,22 +86,27 @@ if (dualAssessor) {
 
 function addSwitcher() {
   if (!dualAssessor || document.querySelector("#dualRoleSwitcher")) return;
+
   const header = document.querySelector(".workspace > header");
   if (!header) return;
+
   const button = document.createElement("button");
   button.id = "dualRoleSwitcher";
   button.type = "button";
   button.className = "dual-role-switcher";
+
   const assessorMode = effectiveMode() === "assessor";
   button.innerHTML = `<span aria-hidden="true">⇄</span><span>${assessorMode ? "Switch to Resident view" : "Switch to Assessor view"}</span>`;
   button.title = assessorMode
-    ? "Return to your Year 4 resident training view"
-    : "Open your assessor tools for Years 1–3";
+    ? `Return to your resident training view${residencyYear ? ` (Year ${residencyYear})` : ""}`
+    : "Open your assessor tools";
+
   button.addEventListener("click", () => {
     localStorage.setItem(MODE_KEY, assessorMode ? "resident" : "assessor");
     location.hash = "#dashboard";
     location.reload();
   });
+
   const profileChip = document.querySelector("#profileChip");
   if (profileChip) profileChip.insertAdjacentElement("afterend", button);
   else header.appendChild(button);
@@ -102,6 +120,9 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => setTimeout(addSwitcher, 0));
-else setTimeout(addSwitcher, 0);
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => setTimeout(addSwitcher, 0));
+} else {
+  setTimeout(addSwitcher, 0);
+}
 new MutationObserver(addSwitcher).observe(document.documentElement, { childList: true, subtree: true });

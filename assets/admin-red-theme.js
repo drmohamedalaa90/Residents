@@ -1,8 +1,8 @@
 import "./logbook-export-v220.js?v=220";
 import "./senior-logbook-history-v224.js?v=228";
 import "./schedule-meetings-refresh-state-v193.js?v=194";
-import "./dual-role-bootstrap-v166.js?v=1.0.166";
-import "./dual-role-v163.js?v=1.0.166";
+import "./dual-role-bootstrap-v166.js?v=1.0.241";
+import "./dual-role-v163.js?v=1.0.241";
 import { sb } from "./supabase.js";
 
 const ROOT_CLASS = "admin-red-theme";
@@ -72,12 +72,16 @@ void import("./admin-logbook-delete-v160.js?v=1.0.162").catch((error) => {
   console.warn("Admin logbook delete controls could not load", error);
 });
 
-void import("./admin-online-exclusions-v166.js?v=1.0.166").catch((error) => {
+void import("./admin-online-exclusions-v166.js?v=1.0.241").catch((error) => {
   console.warn("Admin online exclusions could not load", error);
 });
 
 void import("./admin-push-center-v233.js?v=1.0.233").catch((error) => {
   console.warn("Admin push notification center could not load", error);
+});
+
+void import("./admin-dual-role-manager-v241.js?v=1.0.241").catch((error) => {
+  console.warn("Admin dual-role manager could not load", error);
 });
 
 void import("./senior-logbook-response-gate-v167.js?v=1.0.167").catch((error) => {
